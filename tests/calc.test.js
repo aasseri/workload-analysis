@@ -1,0 +1,99 @@
+/**
+ * calc.test.js — اختبارات محرك الحساب والتحقق، ثم توليد ملفات Excel للاختبار في Excel الحقيقي.
+ * تُشغَّل من tests/run-tests.html عبر خادم الاختبار (tests/test_server.py).
+ */
+(function () {
+  'use strict';
+  var WL = window.WL, cfg = WL.config, U = WL.utils, M = WL.model, V = WL.validation, Calc = WL.calc;
+  var results = [];
+
+  function check(name, actual, expected, tol) {
+    var ok = typeof expected === 'number'
+      ? Math.abs(actual - expected) <= (tol || 1e-9)
+      : actual === expected;
+    results.push({ name: name, ok: ok, actual: actual, expected: expected });
+  }
+
+  function project(actual, tasks) {
+    var p = M.createProject();
+    p.org.entity = 'جهة اختبار';
+    p.org.actualCount = String(actual);
+    tasks.forEach(function (t) {
+      M.addTask(p, { title: t[0], frequencyKey: t[1], repetitions: String(t[2]), durationMinutes: String(t[3]) });
+    });
+    return p;
+  }
+
+  // ── 1. الترددات
+  var expectedFreq = { daily: 240, weekly: 48, semimonthly: 24, monthly: 12, quarterly: 4, semiannual: 2, annual: 1 };
+  Object.keys(expectedFreq).forEach(function (k) {
+    check('التردد ' + k, Calc.findFrequency(cfg, k).perYear, expectedFreq[k]);
+  });
+
+  // ── 2. ساعات المهمة (مثال المواصفات: يومي × 5 × 10 دقائق = 200)
+  check('مثال المواصفات 240×5×10÷60', Calc.taskHours({ frequencyKey: 'daily', repetitions: '5', durationMinutes: '10' }, cfg), 200);
+  check('أرقام عربية ٥ و ١٠', Calc.taskHours({ frequencyKey: 'daily', repetitions: '٥', durationMinutes: '١٠' }, cfg), 200);
+  check('مهمة ناقصة = null', Calc.taskHours({ frequencyKey: '', repetitions: '5', durationMinutes: '10' }, cfg), null);
+
+  // ── 3. البيانات التجريبية (العدد الفعلي 6)
+  var sample = WL.sampleProject();
+  var a = Calc.analyze(sample, cfg);
+  check('إجمالي الساعات للبيانات التجريبية', a.totalHours, 5224);
+  check('الاحتياج الدقيق', a.exactNeed, 5224 / 1023);
+  check('الاحتياج المحسوب (5.107 ← 5)', a.calcNeed, 5);
+  check('الفجوة', a.gap, -1);
+  check('الحالة', a.status, 'فائض');
+  check('مجموع النسب = 100%', a.tasks.reduce(function (s, r) { return s + r.share; }, 0), 1, 1e-12);
+  check('عدد الترددات المستخدمة = 7', a.byFrequency.filter(function (f) { return f.count > 0; }).length, 7);
+
+  // ── 4. التقريب (1.5 ← 2 ، 1.3 ← 1)
+  check('تقريب 1.5', U.roundHalfUp(1.5, 0), 2);
+  check('تقريب 1.3', U.roundHalfUp(1.3, 0), 1);
+  check('تقريب 2.5', U.roundHalfUp(2.5, 0), 3);
+  check('تقريب 0.4999', U.roundHalfUp(0.4999, 0), 0);
+  // مثل Excel: القيمة تُقرأ بدقة 15 رقمًا، فخطأ الفاصلة العائمة في 1.5 لا يقلب التقريب
+  check('تقريب 1.4999999999999998 مثل Excel', U.roundHalfUp(1.4999999999999998, 0), 2);
+
+  // احتياج دقيق = 1.5 بالضبط → 2 → عجز 1 مع عدد فعلي 1
+  var half = Calc.analyze(project(1, [['م', 'annual', 1, 1023 * 60 * 1.5]]), cfg);
+  check('احتياج 1.5 يصبح 2', half.calcNeed, 2);
+  check('حالة عجز', half.status, 'عجز');
+  check('فجوة +1', half.gap, 1);
+
+  // احتياج 1.3 → 1 = العدد الفعلي → متوازن
+  var bal = Calc.analyze(project(1, [['م', 'annual', 1, 1023 * 60 * 1.3]]), cfg);
+  check('احتياج 1.3 يصبح 1', bal.calcNeed, 1);
+  check('حالة متوازن', bal.status, 'متوازن');
+
+  // ── 5. التحقق
+  var empty = V.validateProject(M.createProject(), cfg);
+  var msgs = empty.errors.map(function (e) { return e.message; });
+  check('مشروع فارغ غير صالح', empty.valid, false);
+  check('رسالة اسم الجهة', msgs.indexOf('يرجى إدخال اسم الجهة.') >= 0, true);
+  check('رسالة العدد الفعلي', msgs.indexOf('يرجى إدخال العدد الفعلي.') >= 0, true);
+  check('رسالة لا توجد مهام', msgs.indexOf('يرجى إضافة مهمة واحدة على الأقل.') >= 0, true);
+
+  var bad = project('-2', [['', '', '0', 'abc']]);
+  var badMsgs = V.validateProject(bad, cfg).errors.map(function (e) { return e.message; });
+  check('عدد فعلي سالب', badMsgs.indexOf('يجب ألا يقل العدد الفعلي عن صفر.') >= 0, true);
+  check('تردد مفقود', badMsgs.indexOf('المهمة رقم (1): لم يتم تحديد التردد.') >= 0, true);
+  check('تكرار صفر', badMsgs.indexOf('المهمة رقم (1): يجب أن يكون عدد التكرارات أكبر من صفر.') >= 0, true);
+  check('مدة غير رقمية', badMsgs.indexOf('المهمة رقم (1): المدة بالدقائق يجب أن تكون رقمًا.') >= 0, true);
+  check('لا رسائل تقنية', badMsgs.join(' ').match(/NaN|undefined|null/) === null, true);
+  check('البيانات التجريبية صالحة', V.validateProject(sample, cfg).valid, true);
+
+  // ── 6. اسم الملف
+  var p2 = M.createProject(); p2.org.entity = 'إدارة: "الموارد/البشرية"?';
+  check('تنظيف اسم الملف', /[\\/:*?"<>|]/.test(WL.excel.buildFileName(p2, cfg)), false);
+
+  // ── 7. نموذج البيانات
+  var p3 = WL.sampleProject();
+  var firstId = p3.tasks[0].id;
+  M.moveTask(p3, firstId, 2);
+  check('نقل مهمة', p3.tasks[2].id, firstId);
+  var copy = M.duplicateTask(p3, firstId);
+  check('نسخ مهمة بعد الأصل', p3.tasks[3].id, copy.id);
+  check('الحفظ والاسترجاع', M.serialize(M.deserialize(M.serialize(p3))), M.serialize(p3));
+
+  window.__calcResults = results;
+})();
