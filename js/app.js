@@ -576,8 +576,13 @@
     });
   }
 
+  /** وضع الذكاء الاصطناعي متوقف افتراضيًا، ولا يعمل إلا بعد تفعيله من القائمة. */
+  var aiModeSession = false; // احتياطي إن تعذّر التخزين في المتصفح (التصفح الخاص مثلًا)
   function isAiModeOn() {
-    try { return localStorage.getItem(cfg.app.aiModeStorageKey) !== 'off'; } catch (e) { return true; }
+    try {
+      var v = localStorage.getItem(cfg.app.aiModeStorageKey);
+      return v === null ? aiModeSession : v === 'on';
+    } catch (e) { return aiModeSession; }
   }
 
   /** يُظهر أو يُخفي كل نقاط الدخول للمساعد الذكي (الزر، أزرار ✦ في المهام، اللوحة). */
@@ -589,6 +594,7 @@
 
   function toggleAiMode() {
     var on = !isAiModeOn();
+    aiModeSession = on;
     try { localStorage.setItem(cfg.app.aiModeStorageKey, on ? 'on' : 'off'); } catch (e) { /* يبقى للجلسة الحالية */ }
     applyAiMode(on);
     toast(on ? 'تم تفعيل وضع الذكاء الاصطناعي.' : 'تم إيقاف وضع الذكاء الاصطناعي.', 'success');
