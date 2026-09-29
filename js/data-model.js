@@ -35,6 +35,7 @@
     return {
       id: U.uid(),
       title: p.title || '',
+      positionTitle: p.positionTitle || '',   // المسمى الفعلي الذي ينفّذ المهمة (يُجمع به الاحتياج حسب المسمى)
       frequencyKey: p.frequencyKey || '',
       repetitions: p.repetitions === undefined ? '' : p.repetitions,
       durationMinutes: p.durationMinutes === undefined ? '' : p.durationMinutes

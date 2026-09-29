@@ -10,6 +10,7 @@
 
   var FIELDS = [
     { key: 'title', label: 'عمود المهمة', required: true },
+    { key: 'position', label: 'عمود المسمى الفعلي' },
     { key: 'frequency', label: 'عمود التردد' },
     { key: 'repetitions', label: 'عمود التكرار' },
     { key: 'duration', label: 'عمود المدة (دقائق)' }
@@ -89,6 +90,7 @@
   function itemHtml(it, i) {
     var f = it.frequencyKey ? WL.calc.findFrequency(cfg, it.frequencyKey) : null;
     var meta = [];
+    meta.push(it.positionTitle ? '<span class="chip ok">' + e(it.positionTitle) + '</span>' : '<span class="chip need">المسمى: يُدخل لاحقًا</span>');
     meta.push(f ? '<span class="chip ok">' + e(f.label) + '</span>' : '<span class="chip need">التردد: يُدخل لاحقًا</span>');
     if (it.repetitions) meta.push('<span class="chip ok">التكرار ' + e(it.repetitions) + '</span>');
     if (it.durationMinutes) meta.push('<span class="chip ok">' + e(it.durationMinutes) + ' دقيقة</span>');
@@ -137,20 +139,31 @@
       if (!ok) return;
       p.tasks = [];
     }
+    // توحيد كتابة المسميات مع الموجودة (مثل «مساعد اداري» و«مساعد إداري») حتى لا تُحسب مسميين
+    var canonical = {};
+    p.tasks.concat(chosen.map(function (it) { return { positionTitle: it.positionTitle }; })).forEach(function (t) {
+      var v = WL.calc.positionKey(t.positionTitle);
+      var k = TI.normalizeArabic(v);
+      if (v && !canonical[k]) canonical[k] = v;
+    });
     var ids = chosen.map(function (it) {
-      return M.addTask(p, { title: it.title.trim(), frequencyKey: it.frequencyKey,
-        repetitions: it.repetitions, durationMinutes: it.durationMinutes }).id;
+      var pos = WL.calc.positionKey(it.positionTitle);
+      return M.addTask(p, { title: it.title.trim(), positionTitle: pos ? canonical[TI.normalizeArabic(pos)] : '',
+        frequencyKey: it.frequencyKey, repetitions: it.repetitions, durationMinutes: it.durationMinutes }).id;
     });
     close();
     WL.app.renderTasks();
     WL.app.touchTasks(ids);   // تظهر الحقول الناقصة مباشرة لتُستكمل
-    var incomplete = chosen.filter(function (it) { return !it.frequencyKey || !it.repetitions || !it.durationMinutes; }).length;
+    var incomplete = chosen.filter(function (it) {
+      return !it.positionTitle || !it.frequencyKey || !it.repetitions || !it.durationMinutes;
+    }).length;
     WL.app.toast((replace ? 'تم استبدال المهام بـ ' : 'تمت إضافة ') + tasksText(chosen.length) +
-      (incomplete ? '. أكمل التردد والتكرار والمدة.' : '.'), 'success');
+      (incomplete ? '. أكمل المسمى الفعلي والتردد والتكرار والمدة.' : '.'), 'success');
     var firstRow = document.querySelector('#taskBody tr[data-id="' + ids[0] + '"]');
     if (firstRow) {
       firstRow.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      var focusField = firstRow.querySelector(chosen[0].frequencyKey ? '[data-task-field="repetitions"]' : '[data-task-field="frequencyKey"]');
+      var firstGap = !chosen[0].positionTitle ? 'positionTitle' : !chosen[0].frequencyKey ? 'frequencyKey' : 'repetitions';
+      var focusField = firstRow.querySelector('[data-task-field="' + firstGap + '"]');
       if (focusField) focusField.focus({ preventScroll: true });
     }
   }

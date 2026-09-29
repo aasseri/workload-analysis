@@ -211,6 +211,11 @@ input.num { text-align: center; font-variant-numeric: tabular-nums; direction: l
 .c-order { width: 40px; }
 .c-no { width: 38px; }
 .c-title { width: auto; }
+.c-pos { width: 170px; }
+.tasks td.c-pos { text-align: right; }
+.tasks td.c-pos input { width: 100%; min-height: 40px; padding: 8px 10px; background: var(--input-bg); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
+.tasks td.c-pos input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); background: #fff; }
+.pos-note { margin: 10px 0 0; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: 13px; font-weight: 600; }
 .c-freq { width: 124px; }
 .c-num { width: 96px; }
 .c-share { width: 104px; }
@@ -505,7 +510,7 @@ input.num { text-align: center; font-variant-numeric: tabular-nums; direction: l
 /* جدول المهام يتحول إلى بطاقات عندما لا تتسع مساحته لعمود المهمة
    (استعلام حاوية: يعمل أيضًا عند فتح لوحة المساعد الذكي على الشاشات الكبيرة) */
 #step-1 { container-type: inline-size; container-name: tasks; }
-@container tasks (max-width: 1040px) {
+@container tasks (max-width: 1180px) {
   .tasks, .tasks tbody, .tasks tr, .tasks td { display: block; width: 100%; }
   .tasks thead { display: none; }
   .table-wrap { background: none; border: 0; box-shadow: none; overflow: visible; }
@@ -520,7 +525,8 @@ input.num { text-align: center; font-variant-numeric: tabular-nums; direction: l
   }
   .tasks td.c-order { grid-column: 1; grid-row: 1 / span 2; }
   .tasks td.c-no { display: none; }
-  .tasks td.c-title { grid-column: 2 / 7; grid-row: 1; }
+  .tasks td.c-title { grid-column: 2 / 5; grid-row: 1; }
+  .tasks td.c-pos { grid-column: 5 / 7; grid-row: 1; }
   .tasks td.c-act { grid-column: 7; grid-row: 1; align-self: end; }
   .row-actions { justify-content: flex-end; }
   .calc { padding: 9px 0 0; text-align: right; }
@@ -541,8 +547,9 @@ input.num { text-align: center; font-variant-numeric: tabular-nums; direction: l
 @container tasks (max-width: 660px) {
   .tasks tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tasks td.c-title { grid-column: 1 / -1; grid-row: 1; }
-  .tasks td.c-order { grid-column: 1; grid-row: 5; }
-  .tasks td.c-act { grid-column: 2; grid-row: 5; align-self: center; }
+  .tasks td.c-pos { grid-column: 1 / -1; grid-row: 2; }
+  .tasks td.c-order { grid-column: 1; grid-row: 6; }
+  .tasks td.c-act { grid-column: 2; grid-row: 6; align-self: center; }
   .order-tools { flex-direction: row; gap: 4px; }
   .order-tools .icon-btn { width: 34px; height: 32px; }
   .grip { display: none !important; }

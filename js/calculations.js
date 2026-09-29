@@ -44,6 +44,7 @@
       return {
         id: t.id,
         title: t.title,
+        positionTitle: positionKey(t.positionTitle),
         frequencyKey: t.frequencyKey,
         frequencyLabel: freq ? freq.label : '',
         perYear: freq ? freq.perYear : null,
@@ -79,6 +80,21 @@
     var exactNeed = annual > 0 ? totalHours / annual : 0;
     var calcNeed = U.roundHalfUp(exactNeed, cfg.needRounding.digits);
 
+    // الاحتياج حسب المسمى الفعلي: نفس القاعدة (ساعات المسمى ÷ ساعات العمل السنوية، ثم التقريب) لكل مسمى
+    var byPosition = [];
+    rows.forEach(function (r) {
+      if (!r.positionTitle) return;
+      var g = byPosition.filter(function (p) { return p.title === r.positionTitle; })[0];
+      if (!g) { g = { title: r.positionTitle, count: 0, hours: 0 }; byPosition.push(g); }
+      g.count += 1;
+      g.hours += r.hours || 0;
+    });
+    byPosition.forEach(function (g) {
+      g.exactNeed = annual > 0 ? g.hours / annual : 0;
+      g.need = U.roundHalfUp(g.exactNeed, cfg.needRounding.digits);
+    });
+    var positionsNeedSum = byPosition.reduce(function (s, g) { return s + g.need; }, 0);
+
     var actual = U.parseNumber(project.org.actualCount);
     var gap = U.isValidNumber(actual) ? calcNeed - actual : null;
     var status = statusOf(gap, cfg);
@@ -94,11 +110,19 @@
       gap: gap,
       statusKey: status.key,
       status: status.label,
-      byFrequency: byFrequency
+      byFrequency: byFrequency,
+      byPosition: byPosition,
+      positionsNeedSum: positionsNeedSum
     };
   }
 
+  /** صيغة موحّدة للمسمى الفعلي (بلا مسافات زائدة)؛ تطابق ما يُكتب في Excel حتى يعمل SUMIF بدقة. */
+  function positionKey(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim();
+  }
+
   WL.calc = {
+    positionKey: positionKey,
     findFrequency: findFrequency,
     taskHours: taskHours,
     statusOf: statusOf,

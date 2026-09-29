@@ -140,8 +140,17 @@
   function buildTasks(ctx) {
     var ws = ctx.sheets.tasks, T = ctx.T, N = T.NAMES, L = T.LAYOUT.tasks, cfg = ctx.cfg, a = ctx.analysis;
     var cols = L.columns;
+    /** حرف عمود Excel من مفتاحه في LAYOUT.tasks.columns (لا أحرف ثابتة في المعادلات). */
+    function C(key) {
+      for (var i = 0; i < cols.length; i++) if (cols[i].key === key) return String.fromCharCode(65 + i);
+      throw new Error('UNKNOWN_COLUMN ' + key);
+    }
+    function idx(key) { return C(key).charCodeAt(0) - 64; }
+    var LAST = C(cols[cols.length - 1].key);
+    var BEFORE_HOURS = String.fromCharCode(C('hours').charCodeAt(0) - 1);
+
     T.setColumnWidths(ws, cols.map(function (c) { return c.width; }));
-    titleBlock(ctx, ws, 'H', 'تحليل المهام', true);
+    titleBlock(ctx, ws, LAST, 'تحليل المهام', true);
 
     var hr = L.headerRow;
     var first = hr + 1;
@@ -152,24 +161,23 @@
     for (var i = 0; i < count; i++) {
       var r = first + i;
       var t = a.tasks[i];
-      var noF = 'IF(B' + r + '="","",ROW()-' + hr + ')';
-      var perYearF = 'IF(C' + r + '="","",IF(COUNTIF(' + N.freqNames + ',C' + r + ')=0,"",INDEX(' + N.freqValues + ',MATCH(C' + r + ',' + N.freqNames + ',0))))';
-      var hoursF = 'IF(OR(D' + r + '="",E' + r + '="",F' + r + '=""),"",D' + r + '*E' + r + '*F' + r + '/' + cfg.minutesPerHour + ')';
-      var shareF = 'IF(OR(G' + r + '="",' + N.totalHours + '=0),"",G' + r + '/' + N.totalHours + ')';
-      if (t) {
-        rows.push([
-          f(noF, i + 1),
-          t.title,
-          t.frequencyLabel,
-          f(perYearF, t.perYear),
-          t.repetitions,
-          t.durationMinutes,
-          f(hoursF, t.hours),
-          f(shareF, t.share)
-        ]);
-      } else {
-        rows.push([f(noF, ''), null, null, f(perYearF, ''), null, null, f(hoursF, ''), f(shareF, '')]);
-      }
+      var fq = C('freq') + r, py = C('perYear') + r, rp = C('reps') + r, du = C('duration') + r, hh = C('hours') + r;
+      var noF = 'IF(' + C('title') + r + '="","",ROW()-' + hr + ')';
+      var perYearF = 'IF(' + fq + '="","",IF(COUNTIF(' + N.freqNames + ',' + fq + ')=0,"",INDEX(' + N.freqValues + ',MATCH(' + fq + ',' + N.freqNames + ',0))))';
+      var hoursF = 'IF(OR(' + py + '="",' + rp + '="",' + du + '=""),"",' + py + '*' + rp + '*' + du + '/' + cfg.minutesPerHour + ')';
+      var shareF = 'IF(OR(' + hh + '="",' + N.totalHours + '=0),"",' + hh + '/' + N.totalHours + ')';
+      var values = {
+        no: f(noF, t ? i + 1 : ''),
+        title: t ? t.title : null,
+        position: t ? (t.positionTitle || null) : null,
+        freq: t ? t.frequencyLabel : null,
+        perYear: f(perYearF, t ? t.perYear : ''),
+        reps: t ? t.repetitions : null,
+        duration: t ? t.durationMinutes : null,
+        hours: f(hoursF, t ? t.hours : ''),
+        share: f(shareF, t ? t.share : '')
+      };
+      rows.push(cols.map(function (c) { return values[c.key]; }));
     }
 
     ws.addTable({
@@ -187,78 +195,167 @@
 
     var freqError = 'يرجى اختيار التردد من القائمة المنسدلة.';
     for (var k = 0; k < count; k++) {
-      var rowNum = first + k;
-      var row = ws.getRow(rowNum);
+      var row = ws.getRow(first + k);
       var stripe = k % 2 === 1 ? T.COLORS.stripe : T.COLORS.white;
-      T.style.formula(row.getCell(1), null, { fill: stripe });
-      T.style.input(row.getCell(2));
-      T.style.input(row.getCell(3), null, 'center');
-      T.style.formula(row.getCell(4), T.NUM.integer, { fill: stripe });
-      T.style.input(row.getCell(5), T.NUM.general, 'center');
-      T.style.input(row.getCell(6), T.NUM.general, 'center');
-      T.style.formula(row.getCell(7), T.NUM.hours, { fill: stripe, bold: true });
-      T.style.formula(row.getCell(8), T.NUM.percent, { fill: stripe });
+      T.style.formula(row.getCell(idx('no')), null, { fill: stripe });
+      T.style.input(row.getCell(idx('title')));
+      T.style.input(row.getCell(idx('position')));
+      T.style.input(row.getCell(idx('freq')), null, 'center');
+      T.style.formula(row.getCell(idx('perYear')), T.NUM.integer, { fill: stripe });
+      T.style.input(row.getCell(idx('reps')), T.NUM.general, 'center');
+      T.style.input(row.getCell(idx('duration')), T.NUM.general, 'center');
+      T.style.formula(row.getCell(idx('hours')), T.NUM.hours, { fill: stripe, bold: true });
+      T.style.formula(row.getCell(idx('share')), T.NUM.percent, { fill: stripe });
 
-      row.getCell(3).dataValidation = {
+      row.getCell(idx('freq')).dataValidation = {
         type: 'list', allowBlank: true, formulae: [N.freqNames],
         showErrorMessage: true, errorStyle: 'stop', errorTitle: 'تردد غير صحيح', error: freqError,
         showInputMessage: true, promptTitle: 'التردد', prompt: 'اختر التردد من القائمة'
       };
-      row.getCell(5).dataValidation = numberValidation('decimal', 'greaterThan', 0, 'يجب أن يكون عدد التكرارات رقمًا أكبر من صفر.');
-      row.getCell(6).dataValidation = numberValidation('decimal', 'greaterThan', 0, 'يجب أن تكون المدة بالدقائق رقمًا أكبر من صفر.');
+      row.getCell(idx('reps')).dataValidation = numberValidation('decimal', 'greaterThan', 0, 'يجب أن يكون عدد التكرارات رقمًا أكبر من صفر.');
+      row.getCell(idx('duration')).dataValidation = numberValidation('decimal', 'greaterThan', 0, 'يجب أن تكون المدة بالدقائق رقمًا أكبر من صفر.');
 
       var task = a.tasks[k];
-      row.height = task ? estimateRowHeight(task.title, cols[1].width) : 20;
+      row.height = task ? estimateRowHeight(task.title, cols[idx('title') - 1].width) : 20;
     }
 
-    nameRange(ws, 'B', first, last, N.taskTitles);
-    nameRange(ws, 'C', first, last, N.taskFreq);
-    nameRange(ws, 'G', first, last, N.taskHours);
+    nameRange(ws, C('title'), first, last, N.taskTitles);
+    nameRange(ws, C('position'), first, last, N.taskPositions);
+    nameRange(ws, C('freq'), first, last, N.taskFreq);
+    nameRange(ws, C('hours'), first, last, N.taskHours);
 
-    // تنبيهات داخل Excel: تردد غير معروف، أو مهمة بلا تكرار/مدة
-    T.addWarningRule(ws, 'C' + first + ':C' + last, 'AND($C' + first + '<>"",$D' + first + '="")');
-    T.addWarningRule(ws, 'C' + first + ':C' + last, 'AND($B' + first + '<>"",$C' + first + '="")');
-    T.addWarningRule(ws, 'E' + first + ':F' + last, 'AND($B' + first + '<>"",E' + first + '="")');
+    // تنبيهات داخل Excel: تردد غير معروف، أو مهمة بلا مسمى أو تردد أو تكرار/مدة
+    var fT = C('title') + first, fF = C('freq') + first;
+    T.addWarningRule(ws, C('freq') + first + ':' + C('freq') + last, 'AND($' + fF + '<>"",$' + C('perYear') + first + '="")');
+    T.addWarningRule(ws, C('freq') + first + ':' + C('freq') + last, 'AND($' + fT + '<>"",$' + fF + '="")');
+    T.addWarningRule(ws, C('position') + first + ':' + C('position') + last, 'AND($' + fT + '<>"",' + C('position') + first + '="")');
+    T.addWarningRule(ws, C('reps') + first + ':' + C('duration') + last, 'AND($' + fT + '<>"",' + C('reps') + first + '="")');
 
     // الإجماليات أعلى الجدول (تبقى ظاهرة مع تجميد الأجزاء)
     var tr = L.totalRow, cr = L.countRow;
-    mergeStyled(ws, 'A' + tr + ':F' + tr, 'إجمالي ساعات العمل السنوية', T.style.label);
-    var total = ws.getCell('G' + tr);
+    mergeStyled(ws, 'A' + tr + ':' + BEFORE_HOURS + tr, 'إجمالي ساعات العمل السنوية', T.style.label);
+    var total = ws.getCell(C('hours') + tr);
     total.value = f('SUM(' + N.taskHours + ')', a.totalHours);
     T.style.total(total, T.NUM.hours);
     total.addName(N.totalHours);
-    var shareTotal = ws.getCell('H' + tr);
-    shareTotal.value = f('SUM(H' + first + ':H' + last + ')', a.totalHours > 0 ? 1 : 0);
+    var shareTotal = ws.getCell(C('share') + tr);
+    shareTotal.value = f('SUM(' + C('share') + first + ':' + C('share') + last + ')', a.totalHours > 0 ? 1 : 0);
     T.style.total(shareTotal, T.NUM.percent);
 
-    mergeStyled(ws, 'A' + cr + ':F' + cr, 'عدد المهام', T.style.label);
-    var cnt = ws.getCell('G' + cr);
+    mergeStyled(ws, 'A' + cr + ':' + BEFORE_HOURS + cr, 'عدد المهام', T.style.label);
+    var cnt = ws.getCell(C('hours') + cr);
     cnt.value = f('COUNTA(' + N.taskTitles + ')', a.taskCount);
     T.style.total(cnt, T.NUM.integer);
     cnt.addName(N.taskCount);
-    T.style.total(ws.getCell('H' + cr));
+    T.style.total(ws.getCell(C('share') + cr));
     ws.getRow(tr).height = 24;
     ws.getRow(cr).height = 24;
 
-    mergeStyled(ws, 'A' + L.noteRow + ':H' + L.noteRow,
+    mergeStyled(ws, 'A' + L.noteRow + ':' + LAST + L.noteRow,
       'الخلايا الملونة بالأصفر الفاتح للإدخال. اختر التردد من القائمة وتُحسب بقية الأعمدة تلقائيًا. يوجد ' +
       cfg.excel.spareTaskRows + ' صفًا فارغًا جاهزًا أسفل المهام لإضافة مهام جديدة، ويتسع نطاق الطباعة تلقائيًا ليشملها.', T.style.note);
     ws.getRow(L.noteRow).height = 20;
 
     var paper = a.tasks.length + hr > cfg.excel.a3RowThreshold ? 'A3' : 'A4';
     T.applyPrint(ws, {
-      paper: paper, landscape: true, printArea: 'A1:H' + (hr + a.tasks.length),
+      paper: paper, landscape: true, printArea: 'A1:' + LAST + (hr + a.tasks.length),
       titleRows: hr + ':' + hr, reportTitle: cfg.app.reportTitle, dateText: ctx.dateText
     });
 
     // نطاق طباعة ديناميكي: حتى آخر صف يحتوي مهمة (بدل طباعة الصفوف الاحتياطية الفارغة)
     var sn = "'" + cfg.excel.sheetNames.tasks + "'!";
-    var titles = sn + '$B$' + first + ':$B$' + last;
+    var titles = sn + '$' + C('title') + '$' + first + ':$' + C('title') + '$' + last;
     ctx.dynamicPrintAreas.push({
       sheetKey: 'tasks',
       formula: 'OFFSET(' + sn + '$A$1,0,0,IF(COUNTA(' + titles + ')=0,' + hr + ',LOOKUP(2,1/(' + titles + '<>""),ROW(' + titles + '))),' + cols.length + ')'
     });
     ctx.taskRows = { first: first, last: last };
+  }
+
+  // ───────────── ورقة الاحتياج حسب المسمى الفعلي ─────────────
+
+  /**
+   * لكل مسمى: عدد المهام، وإجمالي الساعات (SUMIF)، والاحتياج قبل التقريب وبعده (نفس قاعدة الاحتياج العام).
+   * صفوف احتياطية فارغة لمسميات تُضاف لاحقًا في Excel، وسطر تحقق يكشف ساعات مهام لمسميات غير مدرجة.
+   */
+  function buildPositions(ctx) {
+    var ws = ctx.sheets.positions, T = ctx.T, N = T.NAMES, L = T.LAYOUT.positions, cfg = ctx.cfg, a = ctx.analysis;
+    var digits = cfg.needRounding.digits;
+    T.setColumnWidths(ws, L.columns);
+    titleBlock(ctx, ws, 'F', 'الاحتياج حسب المسمى الفعلي', true);
+    mergeStyled(ws, 'A3:F3', 'الاحتياج لكل مسمى = إجمالي ساعات مهامه ÷ ساعات العمل الفعلية السنوية، مقربًا لأقرب عدد صحيح. ' +
+      'الصفوف الصفراء الفارغة لإضافة مسمى جديد يدويًا.', T.style.note);
+    ws.getRow(3).height = 20;
+
+    var hr = L.headerRow;
+    ['م', 'المسمى الفعلي', 'عدد المهام', 'إجمالي الساعات', 'الاحتياج قبل التقريب', 'الاحتياج'].forEach(function (h, i) {
+      var c = ws.getRow(hr).getCell(i + 1); c.value = h; T.style.header(c);
+    });
+    ws.getRow(hr).height = 30;
+
+    var first = hr + 1;
+    var count = a.byPosition.length + L.spareRows;
+    var last = hr + count;
+    for (var i = 0; i < count; i++) {
+      var r = first + i, g = a.byPosition[i];
+      var row = ws.getRow(r);
+      var stripe = i % 2 === 1 ? T.COLORS.stripe : T.COLORS.white;
+      row.getCell(1).value = f('IF(B' + r + '="","",ROW()-' + hr + ')', g ? i + 1 : '');
+      row.getCell(2).value = g ? g.title : null;
+      row.getCell(3).value = f('IF(B' + r + '="","",COUNTIF(' + N.taskPositions + ',B' + r + '))', g ? g.count : '');
+      row.getCell(4).value = f('IF(B' + r + '="","",SUMIF(' + N.taskPositions + ',B' + r + ',' + N.taskHours + '))', g ? g.hours : '');
+      row.getCell(5).value = f('IF(OR(B' + r + '="",' + N.annualHours + '=0),"",D' + r + '/' + N.annualHours + ')', g ? g.exactNeed : '');
+      row.getCell(6).value = f('IF(E' + r + '="","",ROUND(E' + r + ',' + N.needDecimals + '))', g ? g.need : '');
+      T.style.formula(row.getCell(1), null, { fill: stripe });
+      T.style.input(row.getCell(2));
+      T.style.formula(row.getCell(3), T.NUM.integer, { fill: stripe });
+      T.style.formula(row.getCell(4), T.NUM.hours, { fill: stripe });
+      T.style.formula(row.getCell(5), T.NUM.decimal, { fill: stripe });
+      T.style.formula(row.getCell(6), needFormat(digits), { fill: stripe, bold: true, size: 12 });
+      row.height = 24;
+    }
+
+    var tr = last + 1;
+    var tRow = ws.getRow(tr);
+    mergeStyled(ws, 'A' + tr + ':B' + tr, 'المجموع', T.style.total);
+    tRow.getCell(3).value = f('SUM(C' + first + ':C' + last + ')', a.byPosition.reduce(function (s, g) { return s + g.count; }, 0));
+    tRow.getCell(4).value = f('SUM(D' + first + ':D' + last + ')', a.byPosition.reduce(function (s, g) { return s + g.hours; }, 0));
+    tRow.getCell(6).value = f('SUM(F' + first + ':F' + last + ')', a.positionsNeedSum);
+    T.style.total(tRow.getCell(3), T.NUM.integer);
+    T.style.total(tRow.getCell(4), T.NUM.hours);
+    T.style.total(tRow.getCell(5));
+    T.style.total(tRow.getCell(6), needFormat(digits));
+    tRow.height = 26;
+
+    // مقارنة مع الاحتياج الإجمالي، وتحقق من الساعات غير الموزعة على المسميات المدرجة
+    var sumNeedAddr = 'F' + tr, sumHoursAddr = 'D' + tr;
+    var checks = [
+      { label: 'الاحتياج الإجمالي للجهة (إجمالي الساعات ÷ ساعات العمل السنوية)', v: f(N.calcNeed, a.calcNeed), fmt: needFormat(digits),
+        note: f('IF(' + sumNeedAddr + '=' + N.calcNeed + ',"مطابق لمجموع المسميات","يختلف عن مجموع المسميات بسبب تقريب كل مسمى على حدة")',
+          a.positionsNeedSum === a.calcNeed ? 'مطابق لمجموع المسميات' : 'يختلف عن مجموع المسميات بسبب تقريب كل مسمى على حدة') },
+      { label: 'ساعات مهام لمسميات غير مدرجة في الجدول أعلاه', v: f(N.totalHours + '-' + sumHoursAddr, 0), fmt: T.NUM.hours, warn: true,
+        note: f('IF(ROUND(' + N.totalHours + '-' + sumHoursAddr + ',2)=0,"كل الساعات موزعة على المسميات","أضف المسمى الناقص في صف فارغ أعلاه")',
+          'كل الساعات موزعة على المسميات') }
+    ];
+    checks.forEach(function (c, i) {
+      var r = tr + 2 + i;
+      mergeStyled(ws, 'A' + r + ':C' + r, c.label, T.style.label);
+      var vc = ws.getCell('D' + r);
+      vc.value = c.v;
+      T.style.formula(vc, c.fmt, { bold: true });
+      var nc = mergeStyled(ws, 'E' + r + ':F' + r, c.note);
+      T.style.formula(nc, null, { align: 'right' });
+      nc.font = T.font({ size: 10, color: T.COLORS.muted });
+      if (c.warn) {
+        ws.addConditionalFormatting({ ref: 'D' + r, rules: [{ type: 'expression', priority: 1, formulae: ['ROUND(D' + r + ',2)<>0'],
+          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: T.COLORS.deficitFill } }, font: { bold: true, color: { argb: T.COLORS.deficitFont } } } }] });
+      }
+      ws.getRow(r).height = 30;
+    });
+
+    var lastRow = tr + 2 + checks.length - 1;
+    T.applyPrint(ws, { paper: 'A4', landscape: false, printArea: 'A1:F' + lastRow, titleRows: hr + ':' + hr,
+      reportTitle: cfg.app.reportTitle, dateText: ctx.dateText });
   }
 
   // ───────────── ورقة البيانات الأساسية ─────────────
@@ -576,7 +673,8 @@
       dynamicPrintAreas: []
     };
 
-    var freeze = { tasks: T.LAYOUT.tasks.headerRow, workload: T.LAYOUT.workload.headerRow, need: T.LAYOUT.need.headerRow };
+    var freeze = { tasks: T.LAYOUT.tasks.headerRow, workload: T.LAYOUT.workload.headerRow, need: T.LAYOUT.need.headerRow,
+      positions: T.LAYOUT.positions.headerRow };
     cfg.excel.sheetOrder.forEach(function (key) {
       ctx.sheets[key] = wb.addWorksheet(cfg.excel.sheetNames[key], T.sheetOptions(freeze[key]));
     });
@@ -584,6 +682,7 @@
     // الترتيب مهم: الإعدادات أولًا ثم المهام، لأن باقي الأوراق تعتمد على أسمائهما
     buildSettings(ctx);
     buildTasks(ctx);
+    buildPositions(ctx);
     buildBasic(ctx);
     buildWorkload(ctx);
     buildNeed(ctx);

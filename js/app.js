@@ -133,6 +133,9 @@
         '<td class="c-title" data-label="المهمة ' + (i + 1) + '">' +
           '<textarea rows="1" data-task-field="title" maxlength="' + cfg.ui.maxTaskTitleLength + '" placeholder="اكتب وصف المهمة" aria-label="وصف المهمة">' + e(t.title) + '</textarea>' +
           '<small class="err" data-err="title"></small></td>' +
+        '<td class="c-pos" data-label="المسمى الفعلي">' +
+          '<input type="text" list="positionList" data-task-field="positionTitle" value="' + e(t.positionTitle) + '" maxlength="120" placeholder="مثال: مساعد إداري" aria-label="المسمى الفعلي" autocomplete="off">' +
+          '<small class="err" data-err="positionTitle"></small></td>' +
         '<td class="c-freq" data-label="التردد">' +
           '<select data-task-field="frequencyKey" aria-label="التردد">' + frequencyOptions(t.frequencyKey) + '</select>' +
           '<small class="err" data-err="frequencyKey"></small></td>' +
@@ -165,6 +168,7 @@
     $('#tasksEmpty').hidden = tasks.length > 0;
     $('#tasksTable thead').hidden = tasks.length === 0;
     $$('textarea', body).forEach(autoGrow);
+    refreshPositionList();
     refresh();
     if (focusId) {
       var row = body.querySelector('tr[data-id="' + focusId + '"]');
@@ -180,6 +184,45 @@
   function rowId(el) {
     var tr = el.closest('tr[data-id]');
     return tr ? tr.dataset.id : null;
+  }
+
+  // ───────────── المسمى الفعلي: توحيد الكتابة وقائمة الاقتراحات ─────────────
+
+  /** المسميات المستخدمة بترتيب ظهورها (دون تكرار). */
+  function usedPositions(exceptId) {
+    var seen = {}, list = [];
+    state.project.tasks.forEach(function (t) {
+      var v = WL.calc.positionKey(t.positionTitle);
+      if (!v || t.id === exceptId || seen[v]) return;
+      seen[v] = true;
+      list.push(v);
+    });
+    return list;
+  }
+
+  function refreshPositionList() {
+    $('#positionList').innerHTML = usedPositions().map(function (v) {
+      return '<option value="' + U.escapeHtml(v) + '"></option>';
+    }).join('');
+  }
+
+  /**
+   * يحذف المسافات الزائدة، ويوحّد الكتابة مع مسمى موجود يطابقه بعد تجاهل الهمزات والتاء المربوطة والتشكيل،
+   * حتى لا يُحسب «مساعد اداري» و«مساعد إداري» مسميين مختلفين في ورقة الاحتياج حسب المسمى.
+   */
+  function unifyPosition(id, input) {
+    var raw = WL.calc.positionKey(input.value);
+    var key = WL.taskImport.normalizeArabic(raw);
+    var match = key ? usedPositions(id).filter(function (v) {
+      return v !== raw && WL.taskImport.normalizeArabic(v) === key;
+    })[0] : null;
+    var value = match || raw;
+    if (value !== input.value) {
+      input.value = value;
+      M.updateTask(state.project, id, { positionTitle: value });
+      if (match) toast('تم توحيد كتابة المسمى مع «' + match + '».', 'success');
+    }
+    refreshPositionList();
   }
 
   function addTask() {
@@ -227,6 +270,7 @@
     body.addEventListener('focusout', function (e) {
       var field = e.target.dataset && e.target.dataset.taskField;
       if (!field) return;
+      if (field === 'positionTitle') unifyPosition(rowId(e.target), e.target);
       state.touched[rowId(e.target) + ':' + field] = true;
       refresh();
     });
@@ -337,7 +381,7 @@
     var marks = [orgErr, taskErr, !v.valid];
     // لا انتقال إلى المهام قبل اكتمال البيانات الأساسية، ولا إلى المراجعة قبل اكتمال كل المهام
     var orgHint = 'أكمل الحقول الإلزامية في البيانات الأساسية أولًا';
-    var taskHint = 'أكمل التردد والتكرار والمدة لجميع المهام أولًا';
+    var taskHint = 'أكمل المسمى الفعلي والتردد والتكرار والمدة لجميع المهام أولًا';
     $$('.step').forEach(function (btn) {
       var n = Number(btn.dataset.step);
       btn.classList.toggle('is-active', n === state.step);
@@ -365,7 +409,7 @@
     var n = Object.keys(ids).length;
     if (!n) return '';
     return (n === 1 ? 'توجد مهمة واحدة غير مكتملة' : 'توجد ' + tasksCountText(n) + ' غير مكتملة') +
-      '. أكمل التردد والتكرار والمدة لكل مهمة للانتقال إلى المرحلة التالية.';
+      '. أكمل المسمى الفعلي والتردد والتكرار والمدة لكل مهمة للانتقال إلى المرحلة التالية.';
   }
 
   function setLocked(el, isLocked, hint) {
@@ -415,6 +459,24 @@
       '<tbody>' + rows + '</tbody>' +
       '<tfoot><tr><td>الإجمالي</td><td></td><td class="num">' + a.taskCount + '</td><td class="num">' + fmtHours(a.totalHours) +
       '</td><td class="num">' + U.formatPercent(a.totalHours > 0 ? 1 : 0, 1) + '</td></tr></tfoot>';
+
+    // الاحتياج حسب المسمى الفعلي
+    var posRows = a.byPosition.map(function (g) {
+      return '<tr><td>' + e(g.title) + '</td><td class="num">' + g.count + '</td><td class="num">' + fmtHours(g.hours) +
+        '</td><td class="num">' + U.formatNumber(g.exactNeed, 2) + '</td><td class="num"><b>' + fmtNeed(g.need) + '</b></td></tr>';
+    }).join('');
+    $('#posTable').innerHTML =
+      '<thead><tr><th>المسمى الفعلي</th><th>عدد المهام</th><th>إجمالي الساعات</th><th>قبل التقريب</th><th>الاحتياج</th></tr></thead>' +
+      '<tbody>' + (posRows || '<tr><td colspan="5" class="muted">لا توجد مسميات بعد.</td></tr>') + '</tbody>' +
+      (posRows ? '<tfoot><tr><td>المجموع</td><td class="num">' + a.byPosition.reduce(function (s, g) { return s + g.count; }, 0) +
+        '</td><td class="num">' + fmtHours(a.byPosition.reduce(function (s, g) { return s + g.hours; }, 0)) +
+        '</td><td></td><td class="num">' + fmtNeed(a.positionsNeedSum) + '</td></tr></tfoot>' : '');
+    var diff = a.byPosition.length && a.positionsNeedSum !== a.calcNeed;
+    $('#posNote').hidden = !diff;
+    $('#posNote').textContent = diff
+      ? 'مجموع احتياج المسميات (' + fmtNeed(a.positionsNeedSum) + ') يختلف عن الاحتياج الإجمالي للجهة (' + fmtNeed(a.calcNeed) +
+        ') لأن كل مسمى يُقرَّب على حدة، بينما يُحسب الاحتياج الإجمالي من مجموع الساعات.'
+      : '';
   }
 
   function jumpToError(err) {
@@ -454,7 +516,7 @@
   function explainBlockedTasks() {
     state.tasksGateShown = true;
     state.project.tasks.forEach(function (t) {
-      ['title', 'frequencyKey', 'repetitions', 'durationMinutes'].forEach(function (f) { state.touched[t.id + ':' + f] = true; });
+      ['title', 'positionTitle', 'frequencyKey', 'repetitions', 'durationMinutes'].forEach(function (f) { state.touched[t.id + ':' + f] = true; });
     });
     if (state.step !== 1) goToStep(1, true);
     refresh();
@@ -464,7 +526,7 @@
       : $('[data-action="add-task"]');
     if (el) { el.focus(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     toast(first && first.scope === 'task'
-      ? 'أكمل التردد والتكرار والمدة لجميع المهام للانتقال إلى المرحلة التالية.'
+      ? 'أكمل المسمى الفعلي والتردد والتكرار والمدة لجميع المهام للانتقال إلى المرحلة التالية.'
       : 'أضف مهمة واحدة على الأقل للانتقال إلى المرحلة التالية.', 'error');
   }
 
@@ -679,7 +741,7 @@
     /** يُظهر أخطاء الحقول الناقصة لمهام محددة (بعد لصقها) دون انتظار خروج المستخدم من كل حقل. */
     touchTasks: function (ids) {
       ids.forEach(function (id) {
-        ['title', 'frequencyKey', 'repetitions', 'durationMinutes'].forEach(function (f) { state.touched[id + ':' + f] = true; });
+        ['title', 'positionTitle', 'frequencyKey', 'repetitions', 'durationMinutes'].forEach(function (f) { state.touched[id + ':' + f] = true; });
       });
       refresh();
     }

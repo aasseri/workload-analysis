@@ -41,6 +41,7 @@
     freqNames:    'FreqNames',
     freqValues:   'FreqValues',
     taskTitles:   'TaskTitles',
+    taskPositions:'TaskPositions',
     taskFreq:     'TaskFreq',
     taskHours:    'TaskHours',
     totalHours:   'TotalHours',
@@ -68,7 +69,8 @@
       headerRow: 6,
       columns: [
         { key: 'no',       header: 'م',               width: 6 },
-        { key: 'title',    header: 'المهمة',          width: 58 },
+        { key: 'title',    header: 'المهمة',          width: 52 },
+        { key: 'position', header: 'المسمى الفعلي',   width: 22 },
         { key: 'freq',     header: 'التردد',          width: 14 },
         { key: 'perYear',  header: 'المرات السنوية',  width: 14 },
         { key: 'reps',     header: 'التكرار',         width: 11 },
@@ -93,6 +95,11 @@
     },
     summary: {
       columns: [15, 15, 15, 15, 15, 15, 15, 15]
+    },
+    positions: {
+      columns: [6, 34, 13, 17, 20, 14],
+      headerRow: 4,
+      spareRows: 10   // صفوف فارغة لإضافة مسميات يدويًا داخل Excel
     },
     settingsFreqTableName: 'tblFreq'
   };

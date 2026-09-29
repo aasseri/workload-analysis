@@ -52,6 +52,16 @@
     check('جدول: شهري', ti[1].frequencyKey, 'monthly');
     check('جدول: قيم غير صالحة تبقى فارغة', ti[2].frequencyKey + '|' + ti[2].repetitions + '|' + ti[2].durationMinutes, '||');
 
+    // عمود المسمى الفعلي في جدول بعناوين
+    var withPos = 'المهمة' + T + 'المسمى الفعلي' + T + 'التردد\n' +
+      'تدقيق المستندات المالية' + T + 'مدقق   حسابات' + T + 'يومي\n' +
+      'إعداد محاضر الاجتماعات' + T + 'مساعد إداري' + T + 'أسبوعي';
+    var pp = TI.analyze(withPos, cfg);
+    check('جدول: ربط عمود المسمى الفعلي', pp.mapping.position + '/' + pp.mapping.title, '1/0');
+    var pi = TI.buildItems(pp, pp.mapping, [], cfg);
+    check('جدول: نقل المسمى (مع حذف المسافات الزائدة)', pi[0].positionTitle + '|' + pi[1].positionTitle, 'مدقق حسابات|مساعد إداري');
+    check('قائمة Word: المسمى فارغ', items('مراجعة الطلبات الواردة')[0].positionTitle, '');
+
     // جدول بلا عناوين: يُكتشف عمود المهمة (الأطول) وعمود التردد (من قيمه)
     var noHead = 'مراجعة ملفات الموظفين وتحديثها' + T + 'أسبوعي\nإعداد مسير الرواتب ومطابقته' + T + 'شهري';
     var pn = TI.analyze(noHead, cfg);

@@ -14,6 +14,7 @@
     actualNotInteger: 'العدد الفعلي يجب أن يكون عددًا صحيحًا (بدون كسور).',
     noTasks: 'يرجى إضافة مهمة واحدة على الأقل.',
     taskTitle: 'يرجى كتابة وصف المهمة.',
+    taskPosition: 'يرجى إدخال المسمى الفعلي.',
     taskFrequency: 'لم يتم تحديد التردد.',
     repRequired: 'يرجى إدخال عدد التكرارات.',
     repNotNumber: 'عدد التكرارات يجب أن يكون رقمًا.',
@@ -62,6 +63,7 @@
     var known = cfg.frequencies.some(function (f) { return f.key === task.frequencyKey; });
 
     if (isBlank(task.title)) add('title', MSG.taskTitle);
+    if (isBlank(task.positionTitle)) add('positionTitle', MSG.taskPosition);
     if (!known) add('frequencyKey', MSG.taskFrequency);
 
     var rep = validatePositive(task.repetitions, [MSG.repRequired, MSG.repNotNumber, MSG.repPositive]);

@@ -200,6 +200,7 @@
       return {
         task_number: i + 1,
         title: t.title,
+        actual_job_title: String(t.positionTitle || ''),
         frequency: f ? f.label : '',
         repetitions: String(t.repetitions),
         duration_minutes: String(t.durationMinutes),

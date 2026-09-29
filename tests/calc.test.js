@@ -46,6 +46,27 @@
   check('مجموع النسب = 100%', a.tasks.reduce(function (s, r) { return s + r.share; }, 0), 1, 1e-12);
   check('عدد الترددات المستخدمة = 7', a.byFrequency.filter(function (f) { return f.count > 0; }).length, 7);
 
+  // ── 3ب. الاحتياج حسب المسمى الفعلي
+  var pos = {};
+  a.byPosition.forEach(function (g) { pos[g.title] = g; });
+  check('مسمى: مساعد إداري 2200 ساعة ← 2', pos['مساعد إداري'].hours + '/' + pos['مساعد إداري'].need, '2200/2');
+  check('مسمى: أخصائي موارد بشرية 2172 ساعة ← 2', pos['أخصائي موارد بشرية'].hours + '/' + pos['أخصائي موارد بشرية'].need, '2172/2');
+  check('مسمى: محاسب رواتب 852 ساعة ← 1', pos['محاسب رواتب'].hours + '/' + pos['محاسب رواتب'].need, '852/1');
+  check('مسمى: المجموع = الاحتياج الإجمالي في البيانات التجريبية', a.positionsNeedSum, 5);
+
+  // أمثلة المستخدم: 1000 ← 1، 1500 ← 1، 1600 ← 2، 2000 ← 2، 3000 ← 3
+  function hoursProject(list) {
+    var p = M.createProject(); p.org.entity = 'س'; p.org.actualCount = '1';
+    list.forEach(function (x) { M.addTask(p, { title: 'مهمة ' + x[0], positionTitle: x[0], frequencyKey: 'annual', repetitions: '1', durationMinutes: String(x[1] * 60) }); });
+    return Calc.analyze(p, cfg);
+  }
+  var ex = hoursProject([['مدقق أ', 1000], ['مدقق ب', 1500], ['مدقق ج', 1600], ['مدقق د', 2000], ['مساعد إداري', 3000]]);
+  check('أمثلة المستخدم (1000/1500/1600/2000/3000)', ex.byPosition.map(function (g) { return g.need; }).join(','), '1,1,2,2,3');
+  var mix = hoursProject([['أ', 1432.2], ['ب', 1432.2]]); // 1.4 + 1.4
+  check('اختلاف التقريب: مجموع المسميات 2 والإجمالي 3', mix.positionsNeedSum + '/' + mix.calcNeed, '2/3');
+  var spaced = hoursProject([['مساعد   إداري ', 500], ['مساعد إداري', 500]]);
+  check('المسافات الزائدة لا تُنشئ مسمى جديدًا', spaced.byPosition.length + '/' + spaced.byPosition[0].hours, '1/1000');
+
   // ── 4. التقريب (1.5 ← 2 ، 1.3 ← 1)
   check('تقريب 1.5', U.roundHalfUp(1.5, 0), 2);
   check('تقريب 1.3', U.roundHalfUp(1.3, 0), 1);
@@ -78,6 +99,7 @@
   check('عدد فعلي سالب', badMsgs.indexOf('يجب ألا يقل العدد الفعلي عن صفر.') >= 0, true);
   check('تردد مفقود', badMsgs.indexOf('المهمة رقم (1): لم يتم تحديد التردد.') >= 0, true);
   check('تكرار صفر', badMsgs.indexOf('المهمة رقم (1): يجب أن يكون عدد التكرارات أكبر من صفر.') >= 0, true);
+  check('المسمى الفعلي إلزامي', badMsgs.indexOf('المهمة رقم (1): يرجى إدخال المسمى الفعلي.') >= 0, true);
   check('مدة غير رقمية', badMsgs.indexOf('المهمة رقم (1): المدة بالدقائق يجب أن تكون رقمًا.') >= 0, true);
   check('لا رسائل تقنية', badMsgs.join(' ').match(/NaN|undefined|null/) === null, true);
   check('البيانات التجريبية صالحة', V.validateProject(sample, cfg).valid, true);

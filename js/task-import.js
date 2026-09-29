@@ -77,7 +77,8 @@
     title: ['المهمه', 'المهام', 'مهمه', 'مهام', 'الوصف', 'وصف', 'النشاط', 'نشاط', 'الانشطه', 'البيان'],
     frequency: ['التردد', 'تردد', 'الدوريه', 'دوريه'],
     repetitions: ['التكرار', 'تكرار', 'التكرارات', 'العدد', 'عدد'],
-    duration: ['المده', 'مده', 'الزمن', 'زمن', 'الوقت', 'وقت', 'الدقائق', 'دقائق', 'بالدقائق', 'دقيقه']
+    duration: ['المده', 'مده', 'الزمن', 'زمن', 'الوقت', 'وقت', 'الدقائق', 'دقائق', 'بالدقائق', 'دقيقه'],
+    position: ['المسمي', 'مسمي', 'المسميات', 'الوظيفه', 'وظيفه']
   };
 
   function headerField(name) {
@@ -101,7 +102,7 @@
    */
   function analyze(text, cfg) {
     var rows = parseTable(text);
-    if (!rows.length) return { columns: [], hasHeader: false, rows: [], mapping: { title: -1, frequency: -1, repetitions: -1, duration: -1 } };
+    if (!rows.length) return { columns: [], hasHeader: false, rows: [], mapping: { title: -1, position: -1, frequency: -1, repetitions: -1, duration: -1 } };
 
     var width = rows.reduce(function (m, r) { return Math.max(m, r.length); }, 0);
     rows = rows.map(function (r) { while (r.length < width) r.push(''); return r; });
@@ -113,7 +114,7 @@
       // عنوان عمود مثل «المهام» أو «وصف المهمة» في السطر الأول
       var firstIsHeading = rows.length > 1 && first.split(/\s+/).length <= 2 && headerField(first) === 'title';
       return { listMode: true, firstIsHeading: firstIsHeading, columns: [{ index: -1, name: 'النص', sample: first }],
-        hasHeader: false, rows: rows, mapping: { title: -1, frequency: -1, repetitions: -1, duration: -1 } };
+        hasHeader: false, rows: rows, mapping: { title: -1, position: -1, frequency: -1, repetitions: -1, duration: -1 } };
     }
 
     var hasHeader = width > 1 && rows.length > 1 && looksLikeHeader(rows[0], cfg);
@@ -133,7 +134,7 @@
       return { index: ci, name: header && header[ci] ? header[ci] : 'العمود ' + (i + 1), sample: sample };
     });
 
-    var mapping = { title: -1, frequency: -1, repetitions: -1, duration: -1 };
+    var mapping = { title: -1, position: -1, frequency: -1, repetitions: -1, duration: -1 };
     function colBy(test) {
       var hit = columns.filter(function (col) { return test(col); })[0];
       return hit ? hit.index : -1;
@@ -145,7 +146,7 @@
     function used(ci) { return Object.keys(mapping).some(function (k) { return mapping[k] === ci; }); }
 
     if (header) {
-      ['frequency', 'repetitions', 'duration', 'title'].forEach(function (k) {
+      ['frequency', 'repetitions', 'duration', 'position', 'title'].forEach(function (k) {
         mapping[k] = colBy(function (col) { return !used(col.index) && headerField(col.name) === k; });
       });
     }
@@ -221,6 +222,7 @@
       var dur = mapping.duration >= 0 ? positiveNumber(r[mapping.duration]) : null;
       items.push({
         title: title.slice(0, cfg.ui.maxTaskTitleLength),
+        positionTitle: mapping.position >= 0 ? String(r[mapping.position] || '').replace(/\s+/g, ' ').trim() : '',
         frequencyKey: mapping.frequency >= 0 ? matchFrequency(r[mapping.frequency], cfg) : '',
         repetitions: reps === null ? '' : String(reps),
         durationMinutes: dur === null ? '' : String(dur),

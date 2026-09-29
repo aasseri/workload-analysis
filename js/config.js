@@ -50,11 +50,12 @@
         tasks:    'تحليل المهام',
         workload: 'تحليل عبء العمل',
         need:     'الاحتياج والفجوة',
+        positions:'الاحتياج حسب المسمى',
         summary:  'الملخص التنفيذي',
         settings: 'الإعدادات'
       },
       /** ترتيب الأوراق في الملف الناتج. */
-      sheetOrder: ['summary', 'basic', 'tasks', 'workload', 'need', 'settings'],
+      sheetOrder: ['summary', 'basic', 'tasks', 'workload', 'need', 'positions', 'settings'],
       /** صفوف فارغة جاهزة بالمعادلات أسفل المهام ليضيف المستخدم مهامًا داخل Excel. */
       spareTaskRows: 50,
       /** إذا تجاوز عدد صفوف جدول المهام هذا الحد تُطبع الورقة على A3 بدل A4. */
