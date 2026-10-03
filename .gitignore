@@ -1,0 +1,8 @@
+# نتائج الاختبارات (تُولَّد عند تشغيل الاختبارات)
+tests/output/
+
+# إعدادات محلية وملفات النظام
+.claude/
+Thumbs.db
+desktop.ini
+.DS_Store
