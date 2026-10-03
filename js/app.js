@@ -444,7 +444,7 @@
       kpi('العدد الفعلي', a.actualCount === null ? '—' : a.actualCount, '') +
       kpi('الاحتياج المحسوب', fmtNeed(a.calcNeed), 'قبل التقريب: ' + U.formatNumber(a.exactNeed, 2)) +
       kpi('إجمالي ساعات العمل', fmtHours(a.totalHours), 'ساعة سنويًا') +
-      kpi('الفجوة', '<span dir="ltr">' + fmtGap(a.gap) + '</span>', 'الاحتياج المحسوب − العدد الفعلي') +
+      kpi('الفجوة', '<span dir="ltr">' + fmtGap(a.gap) + '</span>', 'العدد الفعلي − الاحتياج المحسوب') +
       kpi('الحالة', e(a.status), '', a.statusKey ? 'status-' + a.statusKey : '') +
       kpi('عدد المهام', a.taskCount, '');
 

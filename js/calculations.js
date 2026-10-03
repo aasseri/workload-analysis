@@ -7,8 +7,8 @@
  *   إجمالي الساعات   = Σ ساعات المهام
  *   الاحتياج الدقيق   = إجمالي الساعات ÷ ساعات العمل السنوية
  *   الاحتياج المحسوب = تقريب(الاحتياج الدقيق)  ← 0.5 فأعلى للأعلى
- *   الفجوة           = الاحتياج المحسوب − العدد الفعلي
- *   الحالة           = عجز (>0) | فائض (<0) | متوازن (=0)
+ *   الفجوة           = العدد الفعلي − الاحتياج المحسوب
+ *   الحالة           = فائض (>0) | عجز (<0) | متوازن (=0)
  */
 (function (root) {
   'use strict';
@@ -33,8 +33,9 @@
 
   function statusOf(gap, cfg) {
     if (!U.isValidNumber(gap)) return { key: null, label: '—' };
-    if (gap > 0) return { key: 'deficit', label: cfg.status.deficit };
-    if (gap < 0) return { key: 'surplus', label: cfg.status.surplus };
+    // الفجوة = العدد الفعلي − الاحتياج: موجبة = موظفون أكثر من الحاجة (فائض)، سالبة = أقل (عجز)
+    if (gap > 0) return { key: 'surplus', label: cfg.status.surplus };
+    if (gap < 0) return { key: 'deficit', label: cfg.status.deficit };
     return { key: 'balanced', label: cfg.status.balanced };
   }
 
@@ -96,7 +97,7 @@
     var positionsNeedSum = byPosition.reduce(function (s, g) { return s + g.need; }, 0);
 
     var actual = U.parseNumber(project.org.actualCount);
-    var gap = U.isValidNumber(actual) ? calcNeed - actual : null;
+    var gap = U.isValidNumber(actual) ? actual - calcNeed : null;
     var status = statusOf(gap, cfg);
 
     return {

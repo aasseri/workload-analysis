@@ -493,11 +493,11 @@
       { label: 'العدد الفعلي', v: f(N.actualCount, a.actualCount), fmt: T.NUM.integer,
         how: 'من ورقة البيانات الأساسية' },
       { label: 'الفجوة', name: N.gap, fmt: gapFormat(digits), bold: true,
-        v: f(N.calcNeed + '-' + N.actualCount, a.gap),
-        how: 'الاحتياج المحسوب − العدد الفعلي' },
+        v: f(N.actualCount + '-' + N.calcNeed, a.gap),
+        how: 'العدد الفعلي − الاحتياج المحسوب' },
       { label: 'الحالة', name: N.status, bold: true, status: true,
-        v: f('IF(' + N.gap + '>0,"' + st.deficit + '",IF(' + N.gap + '<0,"' + st.surplus + '","' + st.balanced + '"))', a.status),
-        how: 'موجبة = ' + st.deficit + ' ، سالبة = ' + st.surplus + ' ، صفر = ' + st.balanced }
+        v: f('IF(' + N.gap + '>0,"' + st.surplus + '",IF(' + N.gap + '<0,"' + st.deficit + '","' + st.balanced + '"))', a.status),
+        how: 'موجبة = ' + st.surplus + ' ، سالبة = ' + st.deficit + ' ، صفر = ' + st.balanced }
     ];
 
     steps.forEach(function (s, i) {

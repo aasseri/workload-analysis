@@ -41,7 +41,7 @@
   check('إجمالي الساعات للبيانات التجريبية', a.totalHours, 5224);
   check('الاحتياج الدقيق', a.exactNeed, 5224 / 1023);
   check('الاحتياج المحسوب (5.107 ← 5)', a.calcNeed, 5);
-  check('الفجوة', a.gap, -1);
+  check('الفجوة = العدد الفعلي 6 − الاحتياج 5 = +1', a.gap, 1);
   check('الحالة', a.status, 'فائض');
   check('مجموع النسب = 100%', a.tasks.reduce(function (s, r) { return s + r.share; }, 0), 1, 1e-12);
   check('عدد الترددات المستخدمة = 7', a.byFrequency.filter(function (f) { return f.count > 0; }).length, 7);
@@ -79,7 +79,7 @@
   var half = Calc.analyze(project(1, [['م', 'annual', 1, 1023 * 60 * 1.5]]), cfg);
   check('احتياج 1.5 يصبح 2', half.calcNeed, 2);
   check('حالة عجز', half.status, 'عجز');
-  check('فجوة +1', half.gap, 1);
+  check('فجوة −1 (فعلي 1 − احتياج 2)', half.gap, -1);
 
   // احتياج 1.3 → 1 = العدد الفعلي → متوازن
   var bal = Calc.analyze(project(1, [['م', 'annual', 1, 1023 * 60 * 1.3]]), cfg);
